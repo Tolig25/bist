@@ -1,1 +1,6 @@
-
+flask
+pandas
+numpy
+yfinance
+scipy
+matplotlib
