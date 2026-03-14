@@ -64,41 +64,57 @@
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<div class="mt-4" style="height: 300px;">
+    <canvas id="priceChart"></canvas>
+</div>
+
 <script>
+    let myChart; // Grafik nesnesini global tanımlıyoruz
+
     async function runSystem() {
         const symbol = document.getElementById('symbol').value;
         const days = document.getElementById('days').value;
         const output = document.getElementById('output');
-
-        output.innerHTML = `<span class="text-info">> ${symbol} için motorlar başlatıldı...</span><br>> Veriler çekiliyor...<br>> İndikatörler hesaplanıyor...`;
 
         try {
             const response = await fetch(`/api/analyze?symbol=${symbol}&days=${days}`);
             const data = await response.json();
 
             if (data.status === "success") {
-                output.innerHTML = `
-                    <div class="mt-2">
-                        <span class="text-success">✔ Analiz Başarılı.</span><br><br>
-                        <span class="text-white">HİSSE:</span> <span class="text-info">${data.symbol}</span><br>
-                        <span class="text-white">ANLIK FİYAT:</span> ${data.current_price} TL<br>
-                        <span class="text-white">RSI:</span> ${data.rsi} (${data.rsi > 70 ? 'Aşırı Alım' : data.rsi < 30 ? 'Aşırı Satım' : 'Nötr'})<br>
-                        <hr class="border-secondary">
-                        <h5 class="text-warning">GELECEK PROJEKSİYONU (${days} GÜN)</h5>
-                        <span class="text-white">TAHMİNİ FİYAT:</span> ${data.prediction.predicted_price} TL<br>
-                        <span class="text-white">GÜVEN ARALIĞI:</span> ±${data.prediction.margin} TL<br>
-                        <span class="text-white">TREND YÖNÜ:</span> ${data.prediction.trend}<br>
-                        <hr class="border-secondary">
-                        <span class="text-white">OTONOM RİSK SKORU:</span> %${data.risk.risk_score} 
-                        ${data.risk.is_manipulative ? '<br><span class="text-danger">⚠ UYARI: YÜKSEK MANİPÜLASYON RİSKİ!</span>' : ''}
-                    </div>
-                `;
-            } else {
-                output.innerHTML = `<span class="text-danger">> HATA: ${data.error}</span>`;
+                // ... (Önceki metin çıktıları burada kalacak) ...
+                
+                // GRAFİK ÇİZİMİ
+                const ctx = document.getElementById('priceChart').getContext('2d');
+                if (myChart) myChart.destroy(); // Eski grafiği sil
+
+                myChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.chart_labels, // Backend'den gelecek tarih listesi
+                        datasets: [{
+                            label: `${symbol} Fiyat Grafiği`,
+                            data: data.chart_prices, // Backend'den gelecek fiyat listesi
+                            borderColor: '#38bdf8',
+                            borderWidth: 2,
+                            fill: true,
+                            backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { grid: { display: false }, ticks: { color: '#64748b' } },
+                            y: { grid: { color: '#1e293b' }, ticks: { color: '#64748b' } }
+                        }
+                    }
+                });
             }
-        } catch (e) {
-            output.innerHTML = `<span class="text-danger">> BAĞLANTI HATASI: Sunucuya ulaşılamıyor.</span>`;
-        }
+        } catch (e) { console.error(e); }
     }
 </script>
 </body>
