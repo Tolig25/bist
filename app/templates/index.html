@@ -1,1 +1,22 @@
+<script>
+    async function runAnalysis() {
+        const symbol = document.getElementById('symbolInput').value;
+        const days = document.getElementById('daySelect').value;
+        
+        const response = await fetch(`/api/analyze?symbol=${symbol}&days=${days}`);
+        const data = await response.json();
 
+        if(data.status === "success") {
+            document.getElementById('output').innerHTML = `
+                <div class="card p-3 bg-dark text-info">
+                    <h4>${data.symbol} Analiz Raporu</h4>
+                    <p>Fiyat: ${data.current_price} TL</p>
+                    <p>RSI: ${data.rsi}</p>
+                    <hr>
+                    <h5 class="text-warning">Tahmin (${days} Gün Sonra): ${data.prediction.predicted_price} TL</h5>
+                    <p>Otonom Risk Skoru: %${data.risk.risk_score}</p>
+                </div>
+            `;
+        }
+    }
+</script>
