@@ -27,13 +27,15 @@ def analyze():
         risk = RiskManager.calculate_autonomous_risk(df)
 
         # JSON formatında paketleme
-        return jsonify({
-            "symbol": symbol,
-            "current_price": round(df['Close'].iloc[-1], 2),
-            "rsi": round(df['RSI'].iloc[-1], 2),
-            "prediction": prediction,
-            "risk": risk,
-            "status": "success"
-        })
+return jsonify({
+        "symbol": symbol,
+        "current_price": round(df['Close'].iloc[-1], 2),
+        "rsi": round(df['RSI'].iloc[-1], 2),
+        "prediction": prediction,
+        "risk": risk,
+        "chart_prices": df['Close'].tail(30).tolist(), # Son 30 günün fiyatı
+        "chart_labels": df.index.strftime('%d %b').tolist()[-30:], # Son 30 günün tarihi
+        "status": "success"
+    })
     except Exception as e:
         return jsonify({"error": str(e)})
