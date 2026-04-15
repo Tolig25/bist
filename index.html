@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>BIST Analiz Terminali</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lightweight-charts/4.1.3/lightweight-charts.standalone.production.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Rajdhani:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --gold:     #c9a84c;
+    --gold-dim: #8a6f30;
+    --gold-glow:#e8c96a;
+    --bg:       #06080d;
+    --bg2:      #0c0f18;
+    --bg3:      #121620;
+    --bg4:      #1a1f2e;
+    --border:   #1e2538;
+    --border-g: #2a3048;
+    --text:     #cdd4e8;
+    --text-dim: #6b7594;
+    --green:    #2ecc71;
+    --red:      #e74c3c;
+    --blue:     #4a9eff;
+    --font-display: 'Cinzel', serif;
+    --font-ui:      'Rajdhani', sans-serif;
+    --font-mono:    'JetBrains Mono', monospace;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-ui);
+    font-size: 14px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Noise overlay ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 28px;
+    height: 56px;
+    background: linear-gradient(90deg, var(--bg2) 0%, #0d1020 100%);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: var(--font-display);
+    font-size: 17px;
+    color: var(--gold);
+    letter-spacing: 0.15em;
+    text-shadow: 0 0 20px rgba(201,168,76,0.4);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-diamond {
+    width: 8px; height: 8px;
+    background: var(--gold);
+    transform: rotate(45deg);
+    box-shadow: 0 0 12px var(--gold);
+    animation: pulse-gold 3s ease-in-out infinite;
+  }
+
+  @keyframes pulse-gold {
+    0%,100% { box-shadow: 0 0 8px var(--gold); }
+    50%      { box-shadow: 0 0 20px var(--gold-glow); }
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .llm-status {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 4px 10px;
+    border-radius: 2px;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+  }
+  .llm-status.loaded  { color: var(--green); border-color: rgba(46,204,113,0.3); }
+  .llm-status.loading { color: var(--gold);  border-color: rgba(201,168,76,0.3); animation: blink 1s step-end infinite; }
+  .llm-status.error   { color: var(--red);   border-color: rgba(231,76,60,0.3); }
+  @keyframes blink { 50% { opacity: 0.4; } }
+
+  .time-display {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+  }
+
+  /* ── Layout ── */
+  .layout {
+    display: grid;
+    grid-template-columns: 240px 1fr 320px;
+    grid-template-rows: 1fr;
+    height: calc(100vh - 56px);
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sidebar-section {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .ticker-input-wrap {
+    display: flex;
+    gap: 6px;
+  }
+
+  .ticker-input {
+    flex: 1;
+    background: var(--bg3);
+    border: 1px solid var(--border-g);
+    color: var(--gold);
+    font-family: var(--font-mono);
+    font-size: 14px;
+    padding: 8px 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .ticker-input:focus { border-color: var(--gold-dim); }
+  .ticker-input::placeholder { color: var(--text-dim); }
+
+  .btn {
+    background: transparent;
+    border: 1px solid var(--border-g);
+    color: var(--text-dim);
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 14px;
+    cursor: pointer;
+    letter-spacing: 0.08em;
+    transition: all 0.2s;
+  }
+  .btn:hover { border-color: var(--gold-dim); color: var(--gold); }
+
+  .btn-analyze {
+    width: 100%;
+    padding: 10px;
+    margin-top: 12px;
+    font-size: 12px;
+    letter-spacing: 0.15em;
+    background: linear-gradient(135deg, rgba(201,168,76,0.08), rgba(201,168,76,0.02));
+    border-color: var(--gold-dim);
+    color: var(--gold);
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-analyze::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(201,168,76,0.1), transparent);
+    transition: left 0.4s;
+  }
+  .btn-analyze:hover::before { left: 100%; }
+  .btn-analyze:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .period-btns {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .period-btn {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 4px 8px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.05em;
+  }
+  .period-btn.active { background: rgba(201,168,76,0.1); border-color: var(--gold-dim); color: var(--gold); }
+  .period-btn:hover:not(.active) { border-color: var(--border-g); color: var(--text); }
+
+  /* Strategy list */
+  .strategies-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+  }
+  .strategies-list::-webkit-scrollbar { width: 3px; }
+  .strategies-list::-webkit-scrollbar-track { background: transparent; }
+  .strategies-list::-webkit-scrollbar-thumb { background: var(--border-g); }
+
+  .strategy-item {
+    padding: 10px 12px;
+    margin-bottom: 4px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+    border-radius: 1px;
+  }
+  .strategy-item:hover { background: var(--bg3); border-color: var(--border); }
+  .strategy-item.active { background: rgba(201,168,76,0.06); border-color: var(--gold-dim); }
+
+  .strategy-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.03em;
+  }
+  .strategy-item.active .strategy-name { color: var(--gold); }
+  .strategy-desc {
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-top: 2px;
+    line-height: 1.4;
+  }
+  .strategy-none {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    padding: 10px 12px;
+    letter-spacing: 0.05em;
+  }
+
+  /* Watchlist */
+  .watchlist {
+    padding: 8px;
+    border-top: 1px solid var(--border);
+  }
+  .watchlist-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 8px;
+    cursor: pointer;
+    transition: background 0.1s;
+    border-radius: 1px;
+  }
+  .watchlist-item:hover { background: var(--bg3); }
+  .wl-ticker {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--gold);
+    letter-spacing: 0.08em;
+  }
+  .wl-name {
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+
+  /* ── Main area ── */
+  .main {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg);
+  }
+
+  /* Chart header */
+  .chart-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    background: var(--bg2);
+    flex-shrink: 0;
+  }
+
+  .chart-ticker {
+    font-family: var(--font-display);
+    font-size: 22px;
+    color: var(--gold);
+    letter-spacing: 0.1em;
+    text-shadow: 0 0 30px rgba(201,168,76,0.3);
+  }
+
+  .chart-price {
+    font-family: var(--font-mono);
+    font-size: 20px;
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  .chart-change {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 3px 8px;
+    border-radius: 1px;
+  }
+  .chart-change.up   { color: var(--green); background: rgba(46,204,113,0.1); }
+  .chart-change.down { color: var(--red);   background: rgba(231,76,60,0.1); }
+
+  /* Chart container */
+  #chart-container {
+    flex: 1;
+    position: relative;
+    background: var(--bg);
+    min-height: 0;
+  }
+
+  #chart { width: 100%; height: 100%; }
+
+  .chart-watermark {
+    position: absolute;
+    bottom: 40px;
+    left: 20px;
+    font-family: var(--font-display);
+    font-size: 32px;
+    color: rgba(201,168,76,0.04);
+    letter-spacing: 0.2em;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .chart-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    background: var(--bg);
+  }
+
+  .spinner {
+    width: 32px; height: 32px;
+    border: 2px solid var(--border-g);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-text {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--gold-dim);
+    letter-spacing: 0.15em;
+    animation: blink 1.5s step-end infinite;
+  }
+
+  /* Indicator strip */
+  .indicator-strip {
+    display: flex;
+    gap: 0;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+    background: var(--bg2);
+  }
+
+  .indicator-cell {
+    flex: 1;
+    padding: 8px 12px;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .indicator-cell:last-child { border-right: none; }
+
+  .ind-label {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    letter-spacing: 0.18em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+  .ind-value {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text);
+    font-weight: 500;
+  }
+  .ind-value.up   { color: var(--green); }
+  .ind-value.down { color: var(--red); }
+  .ind-value.gold { color: var(--gold); }
+
+  /* ── Right panel ── */
+  .right-panel {
+    background: var(--bg2);
+    border-left: 1px solid var(--border);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+  .right-panel::-webkit-scrollbar { width: 3px; }
+  .right-panel::-webkit-scrollbar-thumb { background: var(--border-g); }
+
+  .panel-section {
+    border-bottom: 1px solid var(--border);
+    padding: 16px;
+  }
+
+  .panel-title {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.25em;
+    color: var(--gold-dim);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .panel-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--border), transparent);
+  }
+
+  /* Score gauge */
+  .score-gauge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+  }
+
+  .gauge-ring {
+    width: 100px;
+    height: 100px;
+    position: relative;
+  }
+
+  .gauge-svg { transform: rotate(-90deg); }
+
+  .gauge-track {
+    fill: none;
+    stroke: var(--bg3);
+    stroke-width: 8;
+  }
+
+  .gauge-fill {
+    fill: none;
+    stroke-width: 8;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1s ease, stroke 0.5s ease;
+  }
+
+  .gauge-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .gauge-score {
+    font-family: var(--font-display);
+    font-size: 22px;
+    color: var(--gold);
+    line-height: 1;
+  }
+
+  .gauge-label {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+  }
+
+  .signal-badge {
+    font-family: var(--font-display);
+    font-size: 13px;
+    letter-spacing: 0.2em;
+    padding: 6px 20px;
+    border: 1px solid;
+    text-align: center;
+    width: 100%;
+  }
+  .signal-badge.AL    { color: var(--green); border-color: rgba(46,204,113,0.4); background: rgba(46,204,113,0.05); text-shadow: 0 0 20px rgba(46,204,113,0.5); }
+  .signal-badge.SAT   { color: var(--red);   border-color: rgba(231,76,60,0.4);  background: rgba(231,76,60,0.05); text-shadow: 0 0 20px rgba(231,76,60,0.5); }
+  .signal-badge.BEKLE { color: var(--gold);  border-color: rgba(201,168,76,0.4); background: rgba(201,168,76,0.05); }
+
+  /* Levels table */
+  .levels-table { width: 100%; border-collapse: collapse; }
+  .levels-table td {
+    padding: 6px 0;
+    font-size: 12px;
+    border-bottom: 1px solid rgba(30,37,56,0.6);
+  }
+  .levels-table td:first-child {
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+  }
+  .levels-table td:last-child {
+    text-align: right;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .level-buy  { color: var(--green) !important; }
+  .level-sell { color: var(--red) !important; }
+  .level-stop { color: #e67e22 !important; }
+  .level-neutral { color: var(--text) !important; }
+
+  /* Commentary */
+  .commentary-box {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-left: 2px solid var(--gold-dim);
+    padding: 12px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--text);
+    font-style: italic;
+  }
+  .commentary-box.empty {
+    color: var(--text-dim);
+    font-style: normal;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.05em;
+  }
+
+  /* Progress bar */
+  .progress-wrap {
+    width: 100%;
+    height: 3px;
+    background: var(--bg3);
+    border-radius: 0;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+  .progress-bar {
+    height: 100%;
+    border-radius: 0;
+    transition: width 0.8s ease;
+    background: linear-gradient(90deg, var(--gold-dim), var(--gold));
+  }
+
+  /* Error state */
+  .error-msg {
+    background: rgba(231,76,60,0.08);
+    border: 1px solid rgba(231,76,60,0.3);
+    color: var(--red);
+    padding: 10px 14px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    margin: 16px;
+  }
+
+  /* Responsive tweaks */
+  @media (max-width: 1100px) {
+    .layout { grid-template-columns: 200px 1fr 280px; }
+  }
+  @media (max-width: 800px) {
+    .layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; }
+    .sidebar, .right-panel { height: auto; }
+    #chart-container { height: 300px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header>
+  <div class="logo">
+    <div class="logo-diamond"></div>
+    BIST ANALİZ TERMİNALİ
+  </div>
+  <div class="header-right">
+    <div class="time-display" id="clock">--:--:--</div>
+    <div class="llm-status" id="llm-status">LLM: KONTROL EDİLİYOR</div>
+  </div>
+</header>
+
+<!-- ── Layout ── -->
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Hisse Senedi</div>
+      <div class="ticker-input-wrap">
+        <input class="ticker-input" id="ticker-input" type="text" value="THYAO" placeholder="THYAO" maxlength="10"/>
+      </div>
+
+      <div class="sidebar-label" style="margin-top:14px;">Periyot</div>
+      <div class="period-btns" id="period-btns">
+        <button class="period-btn" data-p="1mo">1A</button>
+        <button class="period-btn active" data-p="3mo">3A</button>
+        <button class="period-btn" data-p="6mo">6A</button>
+        <button class="period-btn" data-p="1y">1Y</button>
+        <button class="period-btn" data-p="2y">2Y</button>
+      </div>
+
+      <button class="btn btn-analyze" id="btn-analyze" onclick="runAnalysis()">
+        ▶ &nbsp;ANALİZ ET
+      </button>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Strateji Modülü</div>
+    </div>
+    <div class="strategies-list" id="strategies-list">
+      <div class="strategy-none">YÜKLENİYOR…</div>
+    </div>
+
+    <!-- Quick watchlist -->
+    <div class="watchlist">
+      <div class="sidebar-label" style="padding:8px 4px 4px;">Takip Listesi</div>
+      <div class="watchlist-item" onclick="setTicker('THYAO')">
+        <span class="wl-ticker">THYAO</span>
+        <span class="wl-name">Türk Hava Yolları</span>
+      </div>
+      <div class="watchlist-item" onclick="setTicker('ASELS')">
+        <span class="wl-ticker">ASELS</span>
+        <span class="wl-name">Aselsan</span>
+      </div>
+      <div class="watchlist-item" onclick="setTicker('EREGL')">
+        <span class="wl-ticker">EREGL</span>
+        <span class="wl-name">Ereğli Demir</span>
+      </div>
+      <div class="watchlist-item" onclick="setTicker('BIMAS')">
+        <span class="wl-ticker">BIMAS</span>
+        <span class="wl-name">BİM Mağazaları</span>
+      </div>
+      <div class="watchlist-item" onclick="setTicker('SISE')">
+        <span class="wl-ticker">SISE</span>
+        <span class="wl-name">Şişe Cam</span>
+      </div>
+      <div class="watchlist-item" onclick="setTicker('KCHOL')">
+        <span class="wl-ticker">KCHOL</span>
+        <span class="wl-name">Koç Holding</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="chart-header">
+      <div class="chart-ticker" id="chart-ticker">THYAO</div>
+      <div class="chart-price" id="chart-price">—</div>
+      <div class="chart-change" id="chart-change"></div>
+      <div style="flex:1"></div>
+      <span id="chart-period-label" style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);letter-spacing:0.1em;">3 AYLIK</span>
+    </div>
+
+    <div id="chart-container">
+      <div id="chart"></div>
+      <div class="chart-watermark">BIST</div>
+      <div class="chart-loading" id="chart-loading">
+        <div class="spinner"></div>
+        <div class="loading-text">VERİ BEKLENİYOR</div>
+      </div>
+    </div>
+
+    <div class="indicator-strip">
+      <div class="indicator-cell">
+        <div class="ind-label">RSI 14</div>
+        <div class="ind-value" id="ind-rsi">—</div>
+      </div>
+      <div class="indicator-cell">
+        <div class="ind-label">MACD</div>
+        <div class="ind-value" id="ind-macd">—</div>
+      </div>
+      <div class="indicator-cell">
+        <div class="ind-label">ATR 14</div>
+        <div class="ind-value" id="ind-atr">—</div>
+      </div>
+      <div class="indicator-cell">
+        <div class="ind-label">Destek</div>
+        <div class="ind-value gold" id="ind-support">—</div>
+      </div>
+      <div class="indicator-cell">
+        <div class="ind-label">Direnç</div>
+        <div class="ind-value gold" id="ind-resist">—</div>
+      </div>
+      <div class="indicator-cell">
+        <div class="ind-label">Beklenen Vade</div>
+        <div class="ind-value" id="ind-vade">—</div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Right panel -->
+  <aside class="right-panel">
+
+    <div class="panel-section">
+      <div class="panel-title">AI Skor</div>
+      <div class="score-gauge" id="score-gauge">
+        <div class="gauge-ring">
+          <svg class="gauge-svg" width="100" height="100" viewBox="0 0 100 100">
+            <circle class="gauge-track" cx="50" cy="50" r="40"/>
+            <circle class="gauge-fill" id="gauge-fill" cx="50" cy="50" r="40"
+              stroke-dasharray="251.2" stroke-dashoffset="251.2" stroke="var(--gold)"/>
+          </svg>
+          <div class="gauge-text">
+            <div class="gauge-score" id="gauge-score">—</div>
+            <div class="gauge-label">SKOR</div>
+          </div>
+        </div>
+        <div class="signal-badge BEKLE" id="signal-badge">— BEKLE —</div>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">Seviyeler</div>
+      <table class="levels-table" id="levels-table">
+        <tr><td>Alış Limiti</td><td class="level-buy" id="lvl-buy">—</td></tr>
+        <tr><td>Satış Limiti</td><td class="level-sell" id="lvl-sell">—</td></tr>
+        <tr><td>Stop Loss</td><td class="level-stop" id="lvl-stop">—</td></tr>
+        <tr><td>Destek</td><td class="level-neutral" id="lvl-support">—</td></tr>
+        <tr><td>Direnç</td><td class="level-neutral" id="lvl-resist">—</td></tr>
+        <tr><td>Beklenen Vade</td><td class="level-neutral" id="lvl-vade">—</td></tr>
+      </table>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">Güven Skoru</div>
+      <div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:10px;color:var(--text-dim);margin-bottom:4px;">
+        <span>DÜŞÜK</span><span>YÜKSEK</span>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-bar" id="confidence-bar" style="width:0%"></div>
+      </div>
+      <div style="text-align:center;margin-top:6px;font-family:var(--font-mono);font-size:10px;color:var(--gold-dim)" id="confidence-val">—</div>
+    </div>
+
+    <div class="panel-section" style="flex:1">
+      <div class="panel-title">AI Yorum</div>
+      <div class="commentary-box empty" id="commentary">
+        ANALİZ BEKLENĠYOR…
+      </div>
+    </div>
+
+    <div class="panel-section" id="error-section" style="display:none">
+      <div class="error-msg" id="error-msg"></div>
+    </div>
+
+  </aside>
+
+</div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────
+
+let chart        = null;
+let candleSeries = null;
+let selectedPeriod = '3mo';
+let selectedSystem = null;
+let systems = [];
+
+// ─── Chart Init ──────────────────────────────────────────────────────────
+
+function initChart() {
+  const container = document.getElementById('chart');
+  chart = LightweightCharts.createChart(container, {
+    layout: {
+      background:  { color: '#06080d' },
+      textColor:   '#6b7594',
+    },
+    grid: {
+      vertLines:   { color: '#0f1220', style: 1 },
+      horzLines:   { color: '#0f1220', style: 1 },
+    },
+    crosshair: {
+      mode: LightweightCharts.CrosshairMode.Normal,
+    },
+    rightPriceScale: {
+      borderColor: '#1e2538',
+    },
+    timeScale: {
+      borderColor:    '#1e2538',
+      timeVisible:    true,
+      secondsVisible: false,
+    },
+    handleScroll:  { mouseWheel: true, pressedMouseMove: true },
+    handleScale:   { axisPressedMouseMove: true, mouseWheel: true, pinch: true },
+  });
+
+  candleSeries = chart.addCandlestickSeries({
+    upColor:       '#2ecc71',
+    downColor:     '#e74c3c',
+    borderVisible: false,
+    wickUpColor:   '#2ecc71',
+    wickDownColor: '#e74c3c',
+  });
+
+  // Resize observer
+  const ro = new ResizeObserver(() => {
+    const c = document.getElementById('chart-container');
+    chart.applyOptions({ width: c.clientWidth, height: c.clientHeight });
+  });
+  ro.observe(document.getElementById('chart-container'));
+
+  document.getElementById('chart-loading').style.display = 'none';
+}
+
+// ─── Strategies ──────────────────────────────────────────────────────────
+
+async function loadStrategies() {
+  try {
+    const res  = await fetch('/api/systems');
+    systems    = await res.json();
+    const list = document.getElementById('strategies-list');
+    list.innerHTML = '';
+
+    // "None" option
+    const none = document.createElement('div');
+    none.className = 'strategy-item active';
+    none.dataset.id = '';
+    none.innerHTML = `<div class="strategy-name">— Strateji Yok —</div><div class="strategy-desc">Saf LLM analizi</div>`;
+    none.onclick = () => selectStrategy('', none);
+    list.appendChild(none);
+
+    systems.forEach(s => {
+      const el = document.createElement('div');
+      el.className = 'strategy-item';
+      el.dataset.id = s.id;
+      el.innerHTML = `<div class="strategy-name">${s.name}</div><div class="strategy-desc">${s.description}</div>`;
+      el.onclick = () => selectStrategy(s.id, el);
+      list.appendChild(el);
+    });
+  } catch(e) {
+    document.getElementById('strategies-list').innerHTML =
+      '<div class="strategy-none">Bağlantı hatası</div>';
+  }
+}
+
+function selectStrategy(id, el) {
+  selectedSystem = id || null;
+  document.querySelectorAll('.strategy-item').forEach(i => i.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// ─── Period ──────────────────────────────────────────────────────────────
+
+document.getElementById('period-btns').addEventListener('click', e => {
+  const btn = e.target.closest('.period-btn');
+  if (!btn) return;
+  document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  selectedPeriod = btn.dataset.p;
+  const labels = { '1mo':'1 AYLIK','3mo':'3 AYLIK','6mo':'6 AYLIK','1y':'1 YILLIK','2y':'2 YILLIK' };
+  document.getElementById('chart-period-label').textContent = labels[selectedPeriod] || selectedPeriod;
+});
+
+// ─── Ticker helpers ───────────────────────────────────────────────────────
+
+function setTicker(t) {
+  document.getElementById('ticker-input').value = t;
+  runAnalysis();
+}
+
+// ─── Analysis ────────────────────────────────────────────────────────────
+
+async function runAnalysis() {
+  const ticker = document.getElementById('ticker-input').value.trim().toUpperCase() || 'THYAO';
+  const btn = document.getElementById('btn-analyze');
+
+  btn.disabled = true;
+  btn.textContent = '⟳  ANALİZ EDİLİYOR…';
+  document.getElementById('error-section').style.display = 'none';
+  document.getElementById('chart-loading').style.display = 'flex';
+  document.getElementById('chart-loading').querySelector('.loading-text').textContent = 'VERİ ÇEKĠLĠYOR…';
+
+  try {
+    const res = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ticker: ticker,
+        system: selectedSystem,
+        period: selectedPeriod,
+      }),
+    });
+    const data = await res.json();
+
+    if (data.error) throw new Error(data.error);
+
+    renderChart(data);
+    renderIndicators(data);
+    renderAnalysis(data);
+
+    document.getElementById('chart-ticker').textContent = data.ticker;
+
+  } catch (err) {
+    document.getElementById('error-section').style.display = 'block';
+    document.getElementById('error-msg').textContent = '⚠ ' + err.message;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '▶ &nbsp;ANALİZ ET';
+    document.getElementById('chart-loading').style.display = 'none';
+  }
+}
+
+function renderChart(data) {
+  if (!chart) initChart();
+  const candles = data.candles;
+  if (!candles || !candles.length) return;
+
+  candleSeries.setData(candles);
+
+  // Support / Resistance lines
+  try {
+    const sup = data.analysis.destek || data.indicators.support;
+    const res = data.analysis.direnc || data.indicators.resistance;
+
+    if (sup) {
+      chart.addLineSeries({ color: 'rgba(46,204,113,0.35)', lineWidth: 1, lineStyle: 1 })
+           .setData(candles.map(c => ({ time: c.time, value: sup })));
+    }
+    if (res) {
+      chart.addLineSeries({ color: 'rgba(231,76,60,0.35)', lineWidth: 1, lineStyle: 1 })
+           .setData(candles.map(c => ({ time: c.time, value: res })));
+    }
+  } catch(e) {}
+
+  chart.timeScale().fitContent();
+
+  // Price header
+  const last = candles[candles.length - 1];
+  const prev = candles[candles.length - 2];
+  if (last && prev) {
+    document.getElementById('chart-price').textContent = last.close.toFixed(2) + ' ₺';
+    const chg = ((last.close - prev.close) / prev.close) * 100;
+    const chgEl = document.getElementById('chart-change');
+    chgEl.textContent = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%';
+    chgEl.className = 'chart-change ' + (chg >= 0 ? 'up' : 'down');
+  }
+}
+
+function renderIndicators(data) {
+  const ind = data.indicators;
+  const ana = data.analysis;
+
+  const rsiEl = document.getElementById('ind-rsi');
+  rsiEl.textContent = ind.rsi;
+  rsiEl.className = 'ind-value ' + (ind.rsi < 30 ? 'up' : ind.rsi > 70 ? 'down' : '');
+
+  const macdEl = document.getElementById('ind-macd');
+  macdEl.textContent = ind.macd;
+  macdEl.className = 'ind-value ' + (ind.macd >= 0 ? 'up' : 'down');
+
+  document.getElementById('ind-atr').textContent = ind.atr;
+  document.getElementById('ind-support').textContent = ind.support + ' ₺';
+  document.getElementById('ind-resist').textContent  = ind.resistance + ' ₺';
+
+  const vade = ana.beklenen_vade_gun;
+  document.getElementById('ind-vade').textContent = vade ? vade + ' gün' : '—';
+}
+
+function renderAnalysis(data) {
+  const ana = data.analysis;
+
+  // Gauge
+  const score = ana.skor || 50;
+  const circumference = 251.2;
+  const offset = circumference - (score / 100) * circumference;
+  const fill = document.getElementById('gauge-fill');
+  fill.style.strokeDashoffset = offset;
+
+  const scoreColor =
+    score >= 65 ? '#2ecc71' :
+    score <= 35 ? '#e74c3c' :
+    '#c9a84c';
+  fill.style.stroke = scoreColor;
+
+  document.getElementById('gauge-score').textContent = score;
+
+  // Signal
+  const signal = (ana.sinyal || 'BEKLE').toUpperCase();
+  const badge = document.getElementById('signal-badge');
+  badge.textContent = '— ' + signal + ' —';
+  badge.className = 'signal-badge ' + (signal === 'AL' ? 'AL' : signal === 'SAT' ? 'SAT' : 'BEKLE');
+
+  // Levels
+  const fmt = v => v ? parseFloat(v).toFixed(2) + ' ₺' : '—';
+  document.getElementById('lvl-buy').textContent    = fmt(ana.alis_limiti);
+  document.getElementById('lvl-sell').textContent   = fmt(ana.satis_limiti);
+  document.getElementById('lvl-stop').textContent   = fmt(ana.stop_loss);
+  document.getElementById('lvl-support').textContent= fmt(ana.destek || data.indicators.support);
+  document.getElementById('lvl-resist').textContent = fmt(ana.direnc  || data.indicators.resistance);
+  document.getElementById('lvl-vade').textContent   = ana.beklened_vade_gun || ana.beklenen_vade_gun ? (ana.beklenen_vade_gun + ' gün') : '—';
+
+  // Confidence bar
+  const conf = score;
+  document.getElementById('confidence-bar').style.width = conf + '%';
+  document.getElementById('confidence-val').textContent = conf + ' / 100';
+
+  // Commentary
+  const commEl = document.getElementById('commentary');
+  if (ana.yorum) {
+    commEl.textContent = ana.yorum;
+    commEl.className = 'commentary-box';
+  } else {
+    commEl.textContent = 'Yorum üretilemedi.';
+    commEl.className = 'commentary-box empty';
+  }
+}
+
+// ─── LLM Status ──────────────────────────────────────────────────────────
+
+async function checkLLMStatus() {
+  try {
+    const res  = await fetch('/api/llm_status');
+    const data = await res.json();
+    const el   = document.getElementById('llm-status');
+
+    if (data.loaded) {
+      el.textContent = 'LLM: HAZIR';
+      el.className = 'llm-status loaded';
+    } else if (data.loading) {
+      el.textContent = 'LLM: YÜKLENİYOR…';
+      el.className = 'llm-status loading';
+      setTimeout(checkLLMStatus, 3000);
+    } else if (data.error) {
+      el.textContent = 'LLM: HATA';
+      el.className = 'llm-status error';
+      el.title = data.error;
+    } else {
+      el.textContent = 'LLM: BEKLİYOR';
+      el.className = 'llm-status';
+    }
+  } catch(e) {
+    const el = document.getElementById('llm-status');
+    el.textContent = 'LLM: BAĞLANTI YOK';
+    el.className = 'llm-status error';
+  }
+}
+
+// Warmup model on load
+async function warmupLLM() {
+  try { await fetch('/api/warmup', { method: 'POST' }); } catch(e) {}
+  checkLLMStatus();
+  setTimeout(checkLLMStatus, 5000);
+  setInterval(checkLLMStatus, 30000);
+}
+
+// ─── Clock ───────────────────────────────────────────────────────────────
+
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('tr-TR', { hour12: false });
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ─── Boot ────────────────────────────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', () => {
+  initChart();
+  loadStrategies();
+  warmupLLM();
+
+  // Enter key
+  document.getElementById('ticker-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') runAnalysis();
+  });
+});
+</script>
+</body>
+</html>

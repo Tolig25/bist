@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: bist-terminal
+    env: python
+    plan: starter          # upgrade to "standard" for more RAM
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --workers 1 --threads 2 --timeout 300 --bind 0.0.0.0:$PORT --worker-class gthread
+    envVars:
+      - key: LLM_THREADS
+        value: "2"
+      - key: PYTHONUNBUFFERED
+        value: "1"
+    disk:
+      name: model-cache
+      mountPath: /opt/render/project/src/models
+      sizeGB: 5
